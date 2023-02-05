@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 
-async function fetchData() {
+async function fetchAll() {
   const response = await fetch(
     'http://data.itsfactory.fi/journeys/api/1/stop-points'
   );
@@ -9,37 +9,37 @@ async function fetchData() {
   return data;
 }
 
-const testLat = '61.4880948';
-const testLong = '23.7858711';
+async function fetchStop(shortName) {
+  const response = await fetch(`https://data.itsfactory.fi/journeys/api/1/stop-monitoring?stops=${shortName}`);
+  const data = await response.json();
+  return data;
+}
+async function fetchNearbyStops(userLat, userLong) {
 
-function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  var R = 6371; // Radius of the earth in km
-  var dLat = deg2rad(lat2 - lat1); // deg2rad below
-  var dLon = deg2rad(lon2 - lon1);
-  var a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  var d = R * c; // Distance in km
-  return d;
+  const response = await fetch(
+    `http://data.itsfactory.fi/journeys/api/1/stop-points?location=${userLat - 0.004},${userLong - 0.009}:${userLat + 0.003},${userLong + 0.009}`
+  );
+  const data = await response.json();
+  let stops = data.body.filter((stop) => stop.municipality.name == 'Tampere');
+  stops = stops.map(stop => stop.shortName);
+  stops = stops.filter(stop => stop.startsWith("08") || stop.startsWith("08"));
+
+  stops = stops.map(async stop => {
+    const response = await fetchStop(stop);
+    return response.body;
+  })
+  return await Promise.all(stops);
 }
 
-function deg2rad(deg) {
-  return deg * (Math.PI / 180);
-}
 
 app.get('/', (req, res) => {
-  fetchData().then((data) => {
-    res.json(data.body.filter((stop) => stop.municipality.name == 'Tampere'));
-  });
+  const testLat = 61.496986;
+  const testLong = 23.796476;
+  fetchNearbyStops(testLat, testLong).then(response => {
+    res.json(response)
+  })
 });
 
-app.get('/api/notes', (req, res) => {
-  res.json(notes);
-});
 
 const PORT = 3001;
 app.listen(PORT, () => {
